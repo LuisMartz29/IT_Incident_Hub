@@ -1,0 +1,81 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+# Para la primera ejecución puede usarse ubuntu-latest.
+# Para cumplir el requisito del proyecto, configura un self-hosted agent
+# y reemplaza esta sección por: pool: { name: IncidentHubPool }
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+- stage: Validate
+  displayName: Build, test and security checks
+  jobs:
+  - job: Backend
+    displayName: Backend checks
+    steps:
+    - checkout: self
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.12'
+      displayName: Use Python 3.12
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt
+      displayName: Install backend dependencies
+    - script: |
+        cd backend
+        pytest -q
+      displayName: Run backend tests
+    - script: |
+        pip install pip-audit
+        pip-audit -r backend/requirements.txt
+      displayName: Audit Python dependencies
+      continueOnError: true
+
+  - job: Frontend
+    displayName: Frontend checks and build
+    steps:
+    - checkout: self
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '20.x'
+      displayName: Use Node.js 20
+    - script: |
+        cd frontend
+        npm install
+        npm run lint
+        npm run build
+      displayName: Install, lint and build frontend
+    - script: |
+        cd frontend
+        npm audit --audit-level=high
+      displayName: Audit npm dependencies
+      continueOnError: true
+
+- stage: Package
+  displayName: Package source artifact
+  dependsOn: Validate
+  condition: succeeded()
+  jobs:
+  - job: PublishArtifact
+    steps:
+    - checkout: self
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(Build.SourcesDirectory)'
+        includeRootFolder: true
+        archiveType: zip
+        archiveFile: '$(Build.ArtifactStagingDirectory)/incident-hub-$(Build.BuildId).zip'
+        replaceExistingArchive: true
+        verbose: true
+    - publish: '$(Build.ArtifactStagingDirectory)'
+      artifact: incident-hub
+      displayName: Publish artifact
