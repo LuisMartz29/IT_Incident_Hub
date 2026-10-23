@@ -45,8 +45,11 @@ stages:
         python -m pytest -q tests
       displayName: Run backend tests
 
+    # Auditoría de seguridad de Python.
+    # Las vulnerabilidades detectadas se muestran en el registro,
+    # pero este paso no detiene el pipeline.
     - script: |
-        python -m pip install pip-audit
+        python -m pip install --upgrade pip-audit
         python -m pip_audit -r backend/requirements.txt
       displayName: Audit Python dependencies
       continueOnError: true
@@ -71,6 +74,7 @@ stages:
         npm run build
       displayName: Install, lint and build frontend
 
+    # Auditoría de dependencias del frontend.
     - script: |
         cd frontend
         npm audit --audit-level=high
