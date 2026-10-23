@@ -1,0 +1,43 @@
+trigger: none
+
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+  pipelines:
+    - pipeline: ci
+      source: IT_Incident_Hub
+      trigger:
+        branches:
+          include:
+            - main
+
+stages:
+  - stage: Deploy
+    displayName: Continuous Delivery
+    jobs:
+      - job: DownloadAndVerify
+        displayName: Download and verify CI artifact
+        steps:
+          - checkout: self
+
+          - download: ci
+            artifact: incident-hub
+            displayName: Download CI artifact
+
+          - script: |
+              echo "Checking downloaded artifact..."
+              find "$(Pipeline.Workspace)/ci/incident-hub" -maxdepth 2 -type f -print
+              
+              ZIP_FILE=$(find "$(Pipeline.Workspace)/ci/incident-hub" -name "incident-hub-*.zip" -print -quit)
+
+              if [ -z "$ZIP_FILE" ]; then
+                echo "##vso[task.logissue type=error]The project ZIP was not found."
+                exit 1
+              fi
+
+              echo "Artifact found: $ZIP_FILE"
+              unzip -t "$ZIP_FILE"
+            displayName: Verify published ZIP
