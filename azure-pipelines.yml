@@ -1,3 +1,4 @@
+
 trigger:
   branches:
     include:
@@ -8,67 +9,90 @@ pr:
     include:
       - main
 
-# Para la primera ejecución puede usarse ubuntu-latest.
-# Para cumplir el requisito del proyecto, configura un self-hosted agent
-# y reemplaza esta sección por: pool: { name: IncidentHubPool }
+# Agente hospedado por Azure DevOps
 pool:
   vmImage: ubuntu-latest
 
 stages:
+# ==========================================
+# ETAPA 1: VALIDACIÓN, PRUEBAS Y SEGURIDAD
+# ==========================================
 - stage: Validate
   displayName: Build, test and security checks
   jobs:
+
+  # ----------------------------------------
+  # VALIDACIONES DEL BACKEND
+  # ----------------------------------------
   - job: Backend
     displayName: Backend checks
     steps:
     - checkout: self
+
     - task: UsePythonVersion@0
       inputs:
         versionSpec: '3.12'
       displayName: Use Python 3.12
+
     - script: |
         python -m pip install --upgrade pip
-        pip install -r backend/requirements.txt
+        python -m pip install -r backend/requirements.txt
       displayName: Install backend dependencies
+
     - script: |
         cd backend
-        pytest -q
+        export PYTHONPATH="$(Build.SourcesDirectory)/backend"
+        python -m pytest -q tests
       displayName: Run backend tests
+
     - script: |
-        pip install pip-audit
-        pip-audit -r backend/requirements.txt
+        python -m pip install pip-audit
+        python -m pip_audit -r backend/requirements.txt
       displayName: Audit Python dependencies
       continueOnError: true
 
+  # ----------------------------------------
+  # VALIDACIONES DEL FRONTEND
+  # ----------------------------------------
   - job: Frontend
     displayName: Frontend checks and build
     steps:
     - checkout: self
+
     - task: NodeTool@0
       inputs:
         versionSpec: '20.x'
       displayName: Use Node.js 20
+
     - script: |
         cd frontend
         npm install
         npm run lint
         npm run build
       displayName: Install, lint and build frontend
+
     - script: |
         cd frontend
         npm audit --audit-level=high
       displayName: Audit npm dependencies
       continueOnError: true
 
+# ==========================================
+# ETAPA 2: EMPAQUETADO DEL PROYECTO
+# ==========================================
 - stage: Package
   displayName: Package source artifact
   dependsOn: Validate
   condition: succeeded()
+
   jobs:
   - job: PublishArtifact
+    displayName: Publish project artifact
     steps:
     - checkout: self
+
     - task: ArchiveFiles@2
+      displayName: Archive project source
       inputs:
         rootFolderOrFile: '$(Build.SourcesDirectory)'
         includeRootFolder: true
@@ -76,6 +100,7 @@ stages:
         archiveFile: '$(Build.ArtifactStagingDirectory)/incident-hub-$(Build.BuildId).zip'
         replaceExistingArchive: true
         verbose: true
+
     - publish: '$(Build.ArtifactStagingDirectory)'
       artifact: incident-hub
       displayName: Publish artifact
