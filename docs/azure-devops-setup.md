@@ -72,3 +72,74 @@ Si una validación falla, se deben revisar los registros de la ejecución, corre
 ### Evidencias
 
 Las capturas y los registros de Azure DevOps deben corresponder a ejecuciones reales del proyecto. Se recomienda conservar evidencia de las pruebas aprobadas, las etapas completadas y el artefacto publicado.
+
+## Pipeline de entrega continua (CD)
+
+El proyecto IT Incident Hub dispone de un pipeline de entrega continua configurado en el archivo `azure-pipelines-cd.yml`, ubicado en la raíz del repositorio.
+
+Su objetivo es recuperar el artefacto generado por el pipeline de integración continua (CI) y verificar que el paquete ZIP publicado se encuentre disponible y no presente errores de integridad.
+
+### Activación del pipeline
+
+El pipeline CD utiliza la siguiente configuración:
+
+ `trigger: none`: deshabilita la ejecución automática por cambios directos en el repositorio.
+ `pr: none`: deshabilita los activadores de solicitudes de integración para este pipeline.
+ `resources.pipelines`: establece una dependencia con el pipeline CI denominado `IT_Incident_Hub`.
+ Activación por la rama `main`: permite iniciar el pipeline CD cuando se publica una ejecución del pipeline CI asociada a dicha rama.
+
+### Agente de ejecución
+
+El proceso utiliza un agente hospedado por Azure DevOps con la imagen `ubuntu-latest`.
+
+Este agente permite ejecutar los pasos de descarga y verificación del artefacto sin necesidad de configurar manualmente un equipo como agente de compilación.
+
+### Descarga del artefacto
+
+El pipeline descarga el artefacto denominado `incident-hub`, publicado previamente por el pipeline CI.
+
+El archivo ZIP contiene una copia empaquetada del proyecto, incluyendo los componentes y archivos necesarios para su distribución.
+
+### Verificación del paquete
+
+Después de descargar el artefacto, el pipeline ejecuta un script de Bash que realiza las siguientes operaciones:
+
+1. Busca los archivos disponibles dentro del directorio del artefacto descargado.
+2. Localiza el archivo ZIP cuyo nombre comienza con `incident-hub-`.
+3. Comprueba que el archivo exista.
+4. Ejecuta `unzip -t` para verificar la integridad del archivo comprimido.
+5. Finaliza con un error si no encuentra el paquete o si la verificación falla.
+
+### Resultado esperado
+
+Cuando el proceso finaliza correctamente, Azure DevOps muestra las tareas de descarga y verificación como completadas.
+
+Esto permite comprobar que el artefacto publicado por CI puede recuperarse y que el archivo ZIP supera la verificación de integridad.
+
+Esta implementación verifica el paquete generado, pero no incluye por sí misma la instalación de la aplicación en un servidor ni su despliegue en un entorno de producción.
+
+### Ejecución y mantenimiento
+
+Para revisar el funcionamiento del pipeline:
+
+1. Acceder al proyecto IT_Incident_Hub en Azure DevOps.
+2. Entrar en Pipelines.
+3. Seleccionar el pipeline de entrega continua.
+4. Abrir una ejecución reciente.
+5. Comprobar el resultado de la etapa `Continuous Delivery`.
+6. Revisar el paso `Download and verify CI artifact`.
+7. Confirmar que la descarga y la verificación del archivo ZIP finalicen correctamente.
+
+Si ocurre un error, se deben revisar los registros de ejecución para identificar si el problema corresponde a la descarga, a la ubicación del artefacto o a la integridad del archivo.
+
+### Evidencias
+
+Se deben conservar capturas de las ejecuciones reales que demuestren:
+
+La finalización correcta del pipeline CD.
+La descarga del artefacto `incident-hub`.
+La ejecución del script de verificación.
+El mensaje de finalización sin errores de integridad.
+La publicación del artefacto en el pipeline CI.
+
+Estas evidencias permiten documentar el funcionamiento del proceso de integración y entrega continua del proyecto IT Incident Hub.
