@@ -10,3 +10,7 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Bases de datos locales
+backend/incident_hub.db
+backend/test_incident_hub.db
